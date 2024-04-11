@@ -1,0 +1,13 @@
+version: '3.9'
+
+x-base_service: &base_service
+  environment:
+    TZ: Asia/Seoul
+  stop_signal: SIGKILL
+  tty: true
+name: finance
+
+services:
+  frontend:
+    <<: *base_service
+    build: .
