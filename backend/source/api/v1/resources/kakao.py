@@ -10,7 +10,7 @@ router = APIRouter()
 @router.post("/message", status_code=status.HTTP_200_OK, response_model=kakao.KakaoAPI)
 async def message(request: kakao.KakaoAPI, background_tasks: BackgroundTasks):
 
-    logger.debug(f'MESSAGE REQUEST: {request}')
+    logger.debug(f"MESSAGE REQUEST: {request}")
     try:
         return kakao_api.parse_request(request, background_tasks)
     except Exception as e:

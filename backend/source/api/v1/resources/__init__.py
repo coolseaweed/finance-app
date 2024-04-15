@@ -1,9 +1,3 @@
-from source.api.v1.resources import (
-    health,
-    kakao
-)
+from source.api.v1.resources import health, kakao, dummy
 
-__all__ = [
-    "health",
-    "kakao",
-]
+__all__ = ["health", "kakao", "dummy"]

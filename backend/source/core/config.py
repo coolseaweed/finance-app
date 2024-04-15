@@ -21,7 +21,8 @@ def get_config():
     _config = dict()
 
     # cors origins
-    _config["cors_allow_origins"] = parse_origins_list(str(os.environ.get("CORS_ALLOW_ORIGINS", "")))
+    # _config["cors_allow_origins"] = parse_origins_list(str(os.environ.get("CORS_ALLOW_ORIGINS", "")))
+    _config["cors_allow_origins"] = ["*"]
     _config["cors_allow_credentials"] = bool(int(os.environ.get("CORS_ALLOW_CREDENTIALS", 0)))
 
     # dart info.
