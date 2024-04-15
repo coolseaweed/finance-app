@@ -1,13 +1,70 @@
 version: '3.9'
 
-x-base_service: &base_service
+x-base_service:
+
+  &base_service
+  volumes:
+    # prod
+    - &v_prod /mnt/hdd0/prj/finance-fastapi/prod:/data
+
+    # dev
+    - &v_dev /mnt/hdd0/prj/finance-fastapi/dev:/data
+    - &v_src .:/api
+
+    # db
+    - &v_db_data /mnt/hdd0/prj/finance-fastapi/mysql/data:/var/lib/mysql
+    - &v_db_config /mnt/hdd0/prj/finance-fastapi/mysql/config:/etc/mysql/conf.d
+    - &v_db_init /mnt/hdd0/prj/finance-fastapi/mysql/init:/docker-entrypoint-initdb.d
+
   environment:
     TZ: Asia/Seoul
   stop_signal: SIGKILL
   tty: true
-name: finance
+
+name: finance-backend
 
 services:
-  frontend:
+
+  # ----- BACKEND ----- #
+  prod:
     <<: *base_service
-    build: .
+    ports:
+      - "${PROD_PORT:-8080}:8080"
+    profiles: [ "prod" ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    volumes:
+      - *v_prod
+
+  dev:
+    <<: *base_service
+    ports:
+      - "${DEV_PORT:-8081}:8080"
+    profiles: [ "dev", "all" ]
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    volumes:
+      - *v_dev
+      - *v_src
+    command: /bin/bash
+
+  # ----- DB ----- #
+  mysql:
+    <<: *base_service
+    image: "mysql:8.0"
+    restart: always
+    profiles: [ "db", "all" ]
+    ports:
+      - "3306:3306"
+    env_file:
+      - .env
+    volumes:
+      - *v_db_config
+      - *v_db_data
+      - *v_db_init
