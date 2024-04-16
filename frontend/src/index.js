@@ -6,7 +6,8 @@ import reportWebVitals from "./reportWebVitals";
 import axios from "axios";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
-axios.defaults.baseURL = "http://coolseaweed.iptime.org:11080";
+axios.defaults.baseURL = "https://coolseaweed.duckdns.org/dummy";
+// axios.defaults.baseURL = "http://localhost:11081/dummy";
 
 root.render(
   <React.StrictMode>

@@ -4,65 +4,144 @@ x-base_service:
 
   &base_service
   volumes:
-    # prod
-    - &v_prod /mnt/hdd0/prj/finance-fastapi/prod:/data
 
-    # dev
-    - &v_dev /mnt/hdd0/prj/finance-fastapi/dev:/data
-    - &v_src .:/api
+    # ssl
+    - &v_ssl /mnt/hdd0/prj/finance-app/prod/certificates:/certificates
+    # backend
+    - &v_backend /mnt/hdd0/prj/finance-app/prod/backend:/data
 
     # db
-    - &v_db_data /mnt/hdd0/prj/finance-fastapi/mysql/data:/var/lib/mysql
-    - &v_db_config /mnt/hdd0/prj/finance-fastapi/mysql/config:/etc/mysql/conf.d
-    - &v_db_init /mnt/hdd0/prj/finance-fastapi/mysql/init:/docker-entrypoint-initdb.d
+    - &v_db_data /mnt/hdd0/prj/finance-app/prod/mysql/data:/var/lib/mysql
+    - &v_db_config /mnt/hdd0/prj/finance-app/prod/mysql/config:/etc/mysql/conf.d
+    - &v_db_init /mnt/hdd0/prj/finance-app/prod/mysql/init:/docker-entrypoint-initdb.d
 
   environment:
     TZ: Asia/Seoul
   stop_signal: SIGKILL
   tty: true
 
-name: finance
+name: prod-fs
 
 services:
 
-  # ----- FRONTEND ----- #
-  frontend-frontend:
+  # # ----- FRONTEND ----- #
+  # frontend-frontend:
+  #   <<: *base_service
+  #   profiles: [ "frontend" ]
+
+  #   build: .
+
+
+
+  traefik:
     <<: *base_service
-    profiles: [ "frontend" ]
 
-    build: .
-
-
-
-  # ----- BACKEND ----- #
-  backend-prod:
-    <<: *base_service
+    # Use the latest v2.3.x Traefik image available
+    image: traefik:v2.3
+    profiles: [ "traefik", "all" ]
     ports:
-      # - "${PROD_PORT:-8080}:8080"
-      - "11080:8080"
-    profiles: [ "prod" ]
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: runtime
-    volumes:
-      - *v_prod
-
-  backend-dev:
-    <<: *base_service
-    ports:
-      - "${DEV_PORT:-8081}:8080"
-    profiles: [ "dev", "all" ]
+      # Listen on port 80, default for HTTP, necessary to redirect to HTTPS
+      - 80:80
+      # Listen on port 443, default for HTTPS
+      - 443:443
+    restart: always
     env_file:
       - .env
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: dev
+    labels:
+      # Enable Traefik for this service, to make it available in the public network
+      - traefik.enable=true
+      # Define the port inside of the Docker service to use
+      - traefik.http.services.traefik-dashboard.loadbalancer.server.port=8080
+      # Make Traefik use this domain in HTTP
+      - traefik.http.routers.traefik-dashboard-http.entrypoints=http
+      - traefik.http.routers.traefik-dashboard-http.rule=Host(`dashboard.coolseaweed.duckdns.org`)
+      # Use the traefik-public network (declared below)
+      - traefik.docker.network=traefik-public
+      # traefik-https the actual router using HTTPS
+      - traefik.http.routers.traefik-dashboard-https.entrypoints=https
+      - traefik.http.routers.traefik-dashboard-https.rule=Host(`dashboard.coolseaweed.duckdns.org`)
+      - traefik.http.routers.traefik-dashboard-https.tls=true
+      # Use the "le" (Let's Encrypt) resolver created below
+      - traefik.http.routers.traefik-dashboard-https.tls.certresolver=le
+      # Use the special Traefik service api@internal with the web UI/Dashboard
+      - traefik.http.routers.traefik-dashboard-https.service=api@internal
+      # https-redirect middleware to redirect HTTP to HTTPS
+      - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectscheme.permanent=true
+      # traefik-http set up only to use the middleware to redirect to https
+      - traefik.http.routers.traefik-dashboard-http.middlewares=https-redirect
+      # admin-auth middleware with HTTP Basic auth
+      # Using the environment variables USERNAME and HASHED_PASSWORD
+      # - traefik.http.middlewares.admin-auth.basicauth.users=${USERNAME?Variable not set}:${HASHED_PASSWORD?Variable not set}
+      # Enable HTTP Basic auth, using the middleware created above
+      # - traefik.http.routers.traefik-dashboard-https.middlewares=admin-auth
     volumes:
-      - *v_dev
-      - *v_src
-    command: /bin/bash
+      # Add Docker as a mounted volume, so that Traefik can read the labels of other services
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Mount the volume to store the certificates
+      - *v_ssl
+
+    command:
+      # Enable Docker in Traefik, so that it reads labels from Docker services
+      - --providers.docker
+      # Do not expose all Docker services, only the ones explicitly exposed
+      - --providers.docker.exposedbydefault=false
+      # Create an entrypoint "http" listening on port 80
+      - --entrypoints.http.address=:80
+      # Create an entrypoint "https" listening on port 443
+      - --entrypoints.https.address=:443
+      # Create the certificate resolver "le" for Let's Encrypt, uses the environment variable EMAIL
+      - --certificatesresolvers.le.acme.email=${EMAIL}
+      # Store the Let's Encrypt certificates in the mounted volume
+      - --certificatesresolvers.le.acme.storage=/certificates/acme.json
+      # Use the TLS Challenge for Let's Encrypt
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      # Enable the access log, with HTTP requests
+      - --accesslog
+      # Enable the Traefik log, for configurations and errors
+      - --log
+      # Enable the Dashboard and API
+      - --api
+
+
+  backend:
+    <<: *base_service
+    ports:
+      - "${PROD_BACKEND_PORT:-8080}:80"
+    profiles: [ "backend", "all" ]
+    env_file:
+      - .env
+    environment:
+      - UVICORN_PORT=80
+      - UVICORN_WORKERS=1
+    build:
+      context: ./test
+      dockerfile: Dockerfile
+      target: prod
+    labels:
+      # Enable Traefik for this specific "backend" service
+      - traefik.enable=true
+      # Define the port inside of the Docker service to use
+      - traefik.http.services.app.loadbalancer.server.port=80
+      # Make Traefik use this domain in HTTP
+      - traefik.http.routers.app-http.entrypoints=http
+      - traefik.http.routers.app-http.rule=Host(`coolseaweed.duckdns.org`)
+      # Use the traefik-public network (declared below)
+      - traefik.docker.network=traefik-public
+      # Make Traefik use this domain in HTTPS
+      - traefik.http.routers.app-https.entrypoints=https
+      - traefik.http.routers.app-https.rule=Host(`coolseaweed.duckdns.org`)
+      - traefik.http.routers.app-https.tls=true
+      # Use the "le" (Let's Encrypt) resolver
+      - traefik.http.routers.app-https.tls.certresolver=le
+      # https-redirect middleware to redirect HTTP to HTTPS
+      - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectscheme.permanent=true
+      # Middleware to redirect HTTP to HTTPS
+      - traefik.http.routers.app-http.middlewares=https-redirect
+      # - traefik.http.routers.app-https.middlewares=admin-auth
+    volumes:
+      - *v_backend
 
   # ----- DB ----- #
   mysql:
@@ -70,10 +149,11 @@ services:
     image: "mysql:8.0"
     restart: always
     profiles: [ "db", "all" ]
-    ports:
-      - "3306:3306"
     env_file:
       - .env
+    
+    ports:
+      - ${PROD_MYSQL_PORT:-3306}:3306
     volumes:
       - *v_db_config
       - *v_db_data

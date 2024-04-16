@@ -12,7 +12,7 @@ export default function BookList() {
   }, []);
 
   const fetchBookList = () => {
-    axios.get("/dummy").then((response) => {
+    axios.get("/").then((response) => {
       // setBookList(response.data);
       console.log(response.data);
     });

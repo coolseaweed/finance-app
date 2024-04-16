@@ -1,0 +1,67 @@
+version: '3.9'
+
+x-base_service:
+
+  &base_service
+  volumes:
+
+    # backend
+    - &v_backend /mnt/hdd0/prj/finance-app/dev/backend:/data
+    - &v_src ./test:/app
+
+    # db
+    - &v_db_data /mnt/hdd0/prj/finance-app/dev/mysql/data:/var/lib/mysql
+    - &v_db_config /mnt/hdd0/prj/finance-app/dev/mysql/config:/etc/mysql/conf.d
+    - &v_db_init /mnt/hdd0/prj/finance-app/dev/mysql/init:/docker-entrypoint-initdb.d
+
+  environment:
+    TZ: Asia/Seoul
+  stop_signal: SIGKILL
+  tty: true
+
+name: dev-fs
+
+services:
+
+  # # ----- FRONTEND ----- #
+  # frontend-frontend:
+  #   <<: *base_service
+  #   profiles: [ "frontend" ]
+
+  #   build: .
+
+  backend:
+    <<: *base_service
+    ports:
+      - "${DEV_BACKEND_PORT:-8081}:8080"
+    profiles: [ "backend", "all" ]
+    env_file:
+      - .env
+    environment:
+      - UVICORN_PORT=8080
+      - UVICORN_WORKERS=1
+    build:
+      context: ./test
+      dockerfile: Dockerfile
+      target: prod
+
+    volumes:
+      - *v_backend
+      - *v_src
+    # command: /bin/bash
+
+  # ----- DB ----- #
+  mysql:
+    <<: *base_service
+    image: "mysql:8.0"
+    restart: always
+    profiles: [ "db", "all" ]
+    env_file:
+      - .env
+    
+    ports:
+      - ${DEV_MYSQL_PORT:-3306}:3306
+    volumes:
+      - *v_db_config
+      - *v_db_data
+      - *v_db_init
