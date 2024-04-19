@@ -13,6 +13,9 @@ import { columns, initColumns } from "./metaData";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtons from "../../components/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import axios from "axios";
+
+import { useEffect } from "react";
 
 const Filter = () => {
   const theme = useTheme();
@@ -32,6 +35,44 @@ const Filter = () => {
   const handleAlignment = (event, newAlignment) => {
     setAlignment(newAlignment);
   };
+
+  // KospiData fetch
+  const [kospiData, setKospiData] = useState([]);
+  useEffect(() => {
+    fetchKospiData();
+  }, []);
+
+  const fetchKospiData = () => {
+    axios
+      .get("/v1/stock/dummy/kospi")
+      .then((response) => {
+        setKospiData(response.data);
+      })
+      .catch((error) => {
+        console.log("ERROR while fetching data", error);
+      });
+  };
+
+  // Kosdaq data fetch
+  const [kosdaqData, setKosdaqData] = useState([]);
+  useEffect(() => {
+    fetchKosdaqData();
+  }, []);
+
+  const fetchKosdaqData = () => {
+    axios
+      .get("/v1/stock/dummy/kosdaq")
+      .then((response) => {
+        setKosdaqData(response.data);
+      })
+      .catch((error) => {
+        console.log("ERROR while fetching data", error);
+      });
+  };
+
+  // fetchKospiData();
+  // console.log(kospiData);
+
   return (
     <Box m="20px">
       <Header title="Filter" subtitle="Filtering korean stock market" />
@@ -113,8 +154,12 @@ const Filter = () => {
         </ToggleButtonGroup>
 
         <DataGrid
-          getRowId={isKospi ? (kospi) => kospi.name : (kosdaq) => kosdaq.name}
-          rows={isKospi ? kospi : kosdaq}
+          getRowId={
+            isKospi
+              ? (kospiData) => kospiData.name
+              : (kosdaqData) => kosdaqData.name
+          }
+          rows={isKospi ? kospiData : kosdaqData}
           columns={columns}
           columnVisibilityModel={visibleColumns}
           onColumnVisibilityModelChange={(newModel) =>
