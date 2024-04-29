@@ -30,7 +30,7 @@ def get_fs(corp_code, bsns_year, report_code="11011"):
 
 
 @sleep_and_retry
-@limits(calls=10, period=10)
+@limits(calls=60, period=100)
 def get_fs_all(corp_code: str, bsns_year: str, report_code: str = "11011", fs_div: str = "CFS") -> pd.DataFrame:
     """DART API로 부터 전체 재무제표 불러오는 함수
     corp_code: 기업코드
