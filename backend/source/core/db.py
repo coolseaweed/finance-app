@@ -6,6 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 from time import perf_counter
 import json
+import krx
 
 sys.path.append("../../")
 from static import SQL
@@ -22,21 +23,19 @@ db_engine = sqlalchemy.create_engine(f"mysql+pymysql://{user}:{password}@{host}/
 alchemy_connect = db_engine.connect()
 
 
+# general db functions
+def is_connected() -> bool:
+    return pymysql_connect.open
+
+
 def get_table_data(table_name: str) -> None:
 
     sql = f"SELECT * FROM {table_name}"
     return pd.read_sql(sql, pymysql_connect)
 
 
-def get_company_info(table_name="company_info") -> pd.DataFrame:
-
-    sql = f"SELECT * FROM {table_name}"
+def run_query(sql: str) -> None:
     return pd.read_sql(sql, pymysql_connect)
-
-
-def get_corp_codes():
-    df = get_company_info()
-    return df["corp_code"].tolist()
 
 
 def create_table(table_name: str, schema: str) -> None:
@@ -61,13 +60,27 @@ def delete_table(table_name: str) -> bool:
     pymysql_connect.commit()
 
 
-def update_company_info_table(table_name: str = "company_info") -> None:
-    corp_df = open_dart.getCorpCode()
-    corp_df.columns = ["corp_code", "name", "stock_code", "last_update"]
+# company info table functions
+def get_company_info(table_name: str = "company_info") -> pd.DataFrame:
 
+    sql = f"SELECT * FROM {table_name}"
+    return pd.read_sql(sql, pymysql_connect)
+
+
+def get_corp_codes():
+    df = get_company_info()
+    return df["corp_code"].tolist()
+
+
+def update_company_info(table_name: str = "company_info") -> None:
+    corp_df = open_dart.get_corp_codes()
+    market_df = krx.get_market_info()
     # insert df to db
+
+    corp_df.drop("corp_name", axis=1, inplace=True)
+    df = pd.merge(market_df, corp_df, how="left", on="stock_code")
     ## TODO: refactoring to update not exist corporation entry
-    corp_df.to_sql(name=table_name, con=alchemy_connect, if_exists="append", index=False)
+    df.to_sql(name=table_name, con=alchemy_connect, if_exists="append", index=False)
 
 
 def get_company_info(table_name="company_info") -> pd.DataFrame:
@@ -147,6 +160,11 @@ def update_fs_all(bsns_year, table, report_code, fs_div, f_path="./update_fs_all
     return reports
 
 
+# stock data
+def get_stock_data() -> pd.DataFrame:
+    df = pd.read_sql(SQL.QUERY_STOCK_DATA)
+
+
 if __name__ == "__main__":
 
     # create_table("company_info", SQL.COMPANY_INFO_TABLE)
@@ -160,7 +178,7 @@ if __name__ == "__main__":
     table = f"kor_fs_{fs_div}_{code2quart[report_code]}"
     print(table)
     # delete_table(table)
-    create_table(table, SQL.KOREAN_FS_TABLE)
+    create_table(table, SQL.STOCK_DATA_TABLE)
     update_fs(corp_code, bsns_year, table, report_code, fs_div)
     df = get_fs(corp_code, bsns_year, table)
     print(df)

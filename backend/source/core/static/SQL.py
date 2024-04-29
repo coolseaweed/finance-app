@@ -1,16 +1,16 @@
-from sqlalchemy.types import BigInteger, Integer, String, DATE
-
 COMPANY_INFO_TABLE = """
 corp_code VARCHAR(20),
+corp_name VARCHAR(40),
 stock_code VARCHAR(20),
-name VARCHAR(40),
-last_update DATE,
+sector VARCHAR(100),
+product VARCHAR(100),
+market VARCHAR(1),
+modify_date DATE,
 PRIMARY KEY (corp_code)
 """
 
-
-KOREAN_FS_TABLE = """
-rcept_no BIGINT,
+STOCK_DATA_TABLE = """
+reprt_no BIGINT,
 reprt_code VARCHAR(8),
 bsns_year VARCHAR(8),
 corp_code VARCHAR(8),
@@ -31,52 +31,63 @@ thstrm_add_amount BIGINT
 """
 
 
-KOREAN_FS_SCHEMA = {
-    "rcept_no": BigInteger,
-    "reprt_code": String(8),
-    "bsns_year": String(8),
-    "corp_code": String(8),
-    "sj_div": String(4),
-    "sj_nm": String(256),
-    "account_id": String(256),
-    "account_nm": String(256),
-    "account_detail": String(256),
-    "thstrm_nm": String(64),
-    "thstrm_amount": BigInteger,
-    "frmtrm_nm": String(64),
-    "frmtrm_amount": BigInteger,
-    "bfefrmtrm_nm": String(64),
-    "bfefrmtrm_amount": BigInteger,
-    "ord": Integer,
-    "currency": String(8),
-    "thstrm_add_amount": BigInteger,
-}
+STOCK_DATA_TABLE = """
+name VARCHAR(8),
+asset BIGINT,
+income BIGINT,
+profit BIGINT,
+revenue BIGINT,
+liability BIGINT
 
 
-TEST_1_QUERY = """
+"""
+
+
+QUERY_STOCK_DATA = """
+WITH T1 AS (
+    SELECT
+        corp_code,
+        MAX(
+            CASE
+                WHEN account_id = 'ifrs-full_Assets' THEN thstrm_amount
+            END
+        ) AS 'asset',
+        MAX(
+            CASE
+                WHEN account_id = 'dart_OperatingIncomeLoss' THEN thstrm_amount
+            END
+        ) AS 'income',
+        MAX(
+            CASE
+                WHEN account_id = 'ifrs-full_ProfitLoss' THEN thstrm_amount
+            END
+        ) AS 'profit',
+        MAX(
+            CASE
+                WHEN account_id = 'ifrs-full_Revenue' THEN thstrm_amount
+            END
+        ) AS 'revenue',
+        MAX(
+            CASE
+                WHEN account_id = 'ifrs-full_Liabilities' THEN thstrm_amount
+            END
+        ) AS 'liability'
+    FROM
+        `kor_fs_CFS_Q4`
+    WHERE
+        bsns_year = 2022
+    GROUP BY
+        corp_code
+)
 SELECT
-    account_id,
-    account_nm,
-    thstrm_amount,
-    frmtrm_amount,
-    bfefrmtrm_amount,
-    ord
+    corp_name AS name,
+    asset,
+    income,
+    profit,
+    revenue,
+    liability,
+    market
 FROM
-    korean_fs
-WHERE
-    corp_code = '00126380'
-    AND account_id IN (
-        'ifrs-full_Revenue',
-        "ifrs-full_CostOfSales",
-        "ifrs-full_GrossProfit",
-        "dart_TotalSellingGeneralAdministrativeExpenses",
-        "dart_OperatingIncomeLoss",
-        "dart_OtherGains",
-        "dart_OtherLosses",
-        "ifrs-full_FinanceIncome",
-        'ifrs-full_CurrentAssets',
-        'ifrs-full_Assets'
-    )
-ORDER BY
-    ord
+    T1
+    LEFT JOIN company_info AS T2 ON T1.corp_code = T2.corp_code
 """

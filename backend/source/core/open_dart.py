@@ -6,7 +6,7 @@ import xml.etree.ElementTree as et
 import os
 from ratelimit import limits, RateLimitException, sleep_and_retry
 
-DART_KEY = os.environ.get("DART_KEY", "")
+DART_KEY = os.environ.get("DART_KEY", None)
 BASE_URL = "https://opendart.fss.or.kr/api"
 
 
@@ -67,7 +67,7 @@ def get_corp_codes() -> pd.DataFrame:
     params = {"crtfc_key": DART_KEY}
 
     items = ["corp_code", "corp_name", "stock_code", "modify_date"]
-    url = f"{BASE_URL}/corpCode.xml"  # 요청 url
+    url = "https://opendart.fss.or.kr/api/corpCode.xml"  # 요청 url
     res = requests.get(url, params=params, verify=False)  # url 불러오기
     zfile = zipfile.ZipFile(io.BytesIO(res.content))  # zip file 받기
     fin = zfile.open(zfile.namelist()[0])  # zip file 열고
@@ -83,9 +83,9 @@ def get_corp_codes() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    corp_code = "00126380"
-    bsn_year = "2022"
-    fs_div = "OFS"
-    fn_state = get_fs_all(corp_code, bsn_year, fs_div=fs_div)
-    fn_state.to_csv(f"{corp_code}_{bsn_year}_{fs_div}.csv")
-    print(type(fn_state))
+    # corp_code = "00126380"
+    # bsn_year = "2022"
+    # fs_div = "OFS"
+    # fn_state = get_fs_all(corp_code, bsn_year, fs_div=fs_div)
+    # fn_state.to_csv(f"{corp_code}_{bsn_year}_{fs_div}.csv")
+    # print(type(fn_state))
