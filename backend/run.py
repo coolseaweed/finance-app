@@ -1,13 +1,61 @@
 import os
 import uvicorn
 from dotenv import load_dotenv
+import argparse
 
 load_dotenv()
 
+
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-p",
+        "--port",
+        default=8080,
+        type=int,
+        help="uvicorn port",
+    )
+
+    parser.add_argument(
+        "-w",
+        "--workers",
+        default=1,
+        type=int,
+        help="uvicorn worker",
+    )
+
+    parser.add_argument(
+        "--root-path",
+        default="",
+        type=str,
+        help="root path",
+    )
+
+    parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        type=str,
+        help="host",
+    )
+
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="host",
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
 
-    port = int(os.environ.get("UVICORN_PORT", 8080))
-    workers = int(os.environ.get("UVICORN_WORKERS", 1))
-    root_path = str(os.environ.get("ROOT_PATH", ""))
+    args = get_args()
 
-    uvicorn.run("source.app:wrapped_app", host="0.0.0.0", port=port, root_path=root_path, workers=workers)
+    uvicorn.run(
+        "source.app:wrapped_app",
+        host=args.host,
+        port=args.port,
+        root_path=args.root_path,
+        workers=args.workers,
+        reload=args.reload,
+    )
